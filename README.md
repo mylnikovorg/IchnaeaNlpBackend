@@ -1,12 +1,16 @@
 IchnaeaNlpBackend
 ===================
-[![Build Status](https://travis-ci.org/microg/IchnaeaNlpBackend.svg?branch=master)](https://travis-ci.org/microg/IchnaeaNlpBackend)
 
-[UnifiedNlp](https://github.com/microg/android_packages_apps_UnifiedNlp) backend that uses [Mozilla Location Services](https://location.services.mozilla.com/) to resolve locations.
+[UnifiedNlp](https://github.com/microg/android_packages_apps_UnifiedNlp) backend that uses [Mylnikov Geo-Location API for Wi-Fi](https://www.mylnikov.org/archives/1170) and [Mylnikov Geo-Location API for Mobile Towers](https://www.mylnikov.org/archives/1059) to resolve locations.
+
+Copyrights
+-------
+
+Project code was forked from repository of [IchnaeaNlpBackend](https://github.com/microg/IchnaeaNlpBackend) 
 
 License
 -------
-    Copyright 2015 μg Project Team
+    Copyright 2016 Mylnikov Alexander
     
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -20,4 +24,3 @@ License
     See the License for the specific language governing permissions and
     limitations under the License.
 
-The launcher icon (res/mipmap-*/ic_launcher.png) is created using the [Launcher Icon Generator from Android Asset Studio](https://android-ui-utils.googlecode.com/hg/asset-studio/dist/icons-launcher.html) and thus licensed under [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/).
