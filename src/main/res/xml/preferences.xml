@@ -18,11 +18,11 @@
 
     <PreferenceCategory android:title="@string/pref_category_submit">
         <Preference
-            android:summary="@string/pref_description_install_mozstumbler"
-            android:title="@string/pref_title_install_mozstumbler">
+            android:summary="@string/pref_description_install_locator"
+            android:title="@string/pref_title_install_locator">
             <intent
                 android:action="android.intent.action.VIEW"
-                android:data="market://details?id=org.mozilla.mozstumbler"/>
+                android:data="market://details?id=org.mylnikov.geo.locator"/>
         </Preference>
     </PreferenceCategory>
 

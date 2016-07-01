@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 microG Project Team
+ * Copyright 2016 Mylnikov Alexander
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package org.microg.nlp.backend.ichnaea;
+package org.mylnikov.api.geolocation.unifiednlp.backend;
 
 import android.content.SharedPreferences;
 import android.location.Location;
 import android.os.Build;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.util.Base64;
 import android.util.Log;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.microg.nlp.api.CellBackendHelper;
@@ -34,6 +34,7 @@ import org.microg.nlp.api.WiFiBackendHelper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Set;
@@ -44,10 +45,13 @@ import static org.microg.nlp.api.WiFiBackendHelper.WiFi;
 public class BackendService extends HelperLocationBackendService
         implements WiFiBackendHelper.Listener, CellBackendHelper.Listener {
 
-    private static final String TAG = "IchnaeaBackendService";
-    private static final String SERVICE_URL = "https://location.services.mozilla.com/v1/geolocate?key=%s";
-    private static final String API_KEY = "068ab754-c06b-473d-a1e5-60e7b1a2eb77";
-    private static final String PROVIDER = "ichnaea";
+    private static final String TAG = "MylnikovBackendService";
+    private static final String SERVICE_URL_CELL = "https://api.mylnikov.org/geolocation/cell?v=1.1";
+    private static final String SERVICE_URL_WIFI = "https://api.mylnikov.org/geolocation/wifi?v=1.1";
+
+    private static final String SEARCH_STRING_REQUEST = "&search=";
+
+    private static final String PROVIDER = "mylnikov-geo";
     private static final int RATE_LIMIT_MS = 5000;
 
     private static BackendService instance;
@@ -134,19 +138,40 @@ public class BackendService extends HelperLocationBackendService
             public void run() {
                 HttpURLConnection conn = null;
                 try {
-                    conn = (HttpURLConnection) new URL(String.format(SERVICE_URL, API_KEY)).openConnection();
-                    conn.setDoOutput(true);
-                    conn.setDoInput(true);
-                    String request = createRequest(cells, wiFis);
-                    Log.d(TAG, "request: " + request);
-                    conn.getOutputStream().write(request.getBytes());
-                    String r = new String(readStreamToEnd(conn.getInputStream()));
-                    Log.d(TAG, "response: " + r);
-                    JSONObject response = new JSONObject(r);
-                    double lat = response.getJSONObject("location").getDouble("lat");
-                    double lon = response.getJSONObject("location").getDouble("lng");
-                    double acc = response.getDouble("accuracy");
-                    report(LocationHelper.create(PROVIDER, lat, lon, (float) acc));
+                    String requestWifiPath = getRequestWifiPath(wiFis);
+                    if (requestWifiPath != null) {
+                        conn = (HttpURLConnection) new URL(requestWifiPath).openConnection();
+                        conn.setDoOutput(true);
+                        conn.setDoInput(true);
+                        String r = new String(readStreamToEnd(conn.getInputStream()));
+                        Log.d(TAG, "response: " + r);
+                        JSONObject response = new JSONObject(r);
+                        if (response.has("result") && response.getInt("result") == 200 && response.has("data")) {
+                            JSONObject data = response.getJSONObject("data");
+                            double lat = data.getDouble("lat");
+                            double lon = data.getDouble("lon");
+                            double acc = data.getDouble("accuracy");
+                            report(LocationHelper.create(PROVIDER, lat, lon, (float) acc));
+                            return;
+                        }
+                    }
+                    String requestCellPath = getRequestCellPath(cells);
+                    if (requestCellPath != null) {
+                        conn = (HttpURLConnection) new URL(requestCellPath).openConnection();
+                        conn.setDoOutput(true);
+                        conn.setDoInput(true);
+                        String r = new String(readStreamToEnd(conn.getInputStream()));
+                        Log.d(TAG, "response: " + r);
+                        JSONObject response = new JSONObject(r);
+                        if (response.has("result") && response.getInt("result") == 200 && response.has("data")) {
+                            JSONObject data = response.getJSONObject("data");
+                            double lat = data.getDouble("lat");
+                            double lon = data.getDouble("lon");
+                            double acc = data.getDouble("accuracy");
+                            report(LocationHelper.create(PROVIDER, lat, lon, (float) acc));
+                            return;
+                        }
+                    }
                 } catch (IOException | JSONException e) {
                     if (conn != null) {
                         InputStream is = conn.getErrorStream();
@@ -238,51 +263,31 @@ public class BackendService extends HelperLocationBackendService
         }
     }
 
-    private static String createRequest(Set<Cell> cells, Set<WiFi> wiFis) throws JSONException {
-        JSONObject jsonObject = new JSONObject();
-        JSONArray cellTowers = new JSONArray();
-
-        if (cells != null) {
-            Cell.CellType lastType = null;
+    private static String getRequestCellPath(Set<Cell> cells) throws JSONException, UnsupportedEncodingException {
+        StringBuilder stringBufferRequest = new StringBuilder();
+        if (cells != null && cells.size() != 0) {
             for (Cell cell : cells) {
-                if (cell.getType() == Cell.CellType.CDMA) {
-                    jsonObject.put("radioType", "cdma");
-                } else if (lastType != null && lastType != cell.getType()) {
-                    // We can't contribute if different cell types are mixed.
-                    jsonObject.put("radioType", null);
-                } else {
-                    jsonObject.put("radioType", getRadioType(cell));
-                }
-                lastType = cell.getType();
-                JSONObject cellTower = new JSONObject();
-                cellTower.put("radioType", getRadioType(cell));
-                cellTower.put("mobileCountryCode", cell.getMcc());
-                cellTower.put("mobileNetworkCode", cell.getMnc());
-                cellTower.put("locationAreaCode", cell.getLac());
-                cellTower.put("cellId", cell.getCid());
-                cellTower.put("signalStrength", cell.getSignal());
-                if (cell.getPsc() != -1)
-                    cellTower.put("psc", cell.getPsc());
-                cellTower.put("asu", calculateAsu(cell));
-                cellTowers.put(cellTower);
+                stringBufferRequest.append(cell.getMcc()).append(",");
+                stringBufferRequest.append(cell.getMnc()).append(",");
+                stringBufferRequest.append(cell.getLac()).append(",");
+                stringBufferRequest.append(cell.getCid()).append(",");
+                stringBufferRequest.append(cell.getSignal()).append(";");
             }
+            return SERVICE_URL_CELL + SEARCH_STRING_REQUEST + Base64.encodeToString(stringBufferRequest.toString().getBytes("UTF-8"), Base64.NO_WRAP);
         }
-        JSONArray wifiAccessPoints = new JSONArray();
-        if (wiFis != null) {
-            for (WiFi wiFi : wiFis) {
-                JSONObject wifiAccessPoint = new JSONObject();
-                wifiAccessPoint.put("macAddress", wiFi.getBssid());
-                //wifiAccessPoint.put("age", age);
-                if (wiFi.getChannel() != -1) wifiAccessPoint.put("channel", wiFi.getChannel());
-                if (wiFi.getFrequency() != -1) wifiAccessPoint.put("frequency", wiFi.getFrequency());
-                wifiAccessPoint.put("signalStrength", wiFi.getRssi());
-                //wifiAccessPoint.put("signalToNoiseRatio", signalToNoiseRatio);
-                wifiAccessPoints.put(wifiAccessPoint);
-            }
-        }
-        jsonObject.put("cellTowers", cellTowers);
-        jsonObject.put("wifiAccessPoints", wifiAccessPoints);
-        jsonObject.put("fallbacks", new JSONObject().put("lacf", true).put("ipf", false));
-        return jsonObject.toString();
+        return null;
     }
+
+    private static String getRequestWifiPath(Set<WiFi> wiFis) throws JSONException, UnsupportedEncodingException {
+        StringBuilder stringBufferRequest = new StringBuilder();
+        if (wiFis != null && wiFis.size() != 0) {
+            for (WiFi wiFi : wiFis) {
+                stringBufferRequest.append(wiFi.getBssid()).append(",");
+                stringBufferRequest.append(wiFi.getRssi()).append(";");
+            }
+            return SERVICE_URL_WIFI + SEARCH_STRING_REQUEST + Base64.encodeToString(stringBufferRequest.toString().getBytes("UTF-8"), Base64.NO_WRAP);
+        }
+        return null;
+    }
+
 }

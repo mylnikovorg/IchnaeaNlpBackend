@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 microG Project Team
+ * Copyright 2016 Mylnikov Alexander
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package org.microg.nlp.backend.ichnaea;
+package org.mylnikov.api.geolocation.unifiednlp.backend;
 
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.util.Log;
 
 public class SettingsActivity extends PreferenceActivity {
-    private static final String TAG = "IchnaeaPreferences";
+    private static final String TAG = "MylnikovPreferences";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
