@@ -1,4 +1,4 @@
-IchnaeaNlpBackend
+MylnikovGeoLocationtAPINlpBackend
 ===================
 
 [UnifiedNlp](https://github.com/microg/android_packages_apps_UnifiedNlp) backend that uses [Mylnikov Geo-Location API for Wi-Fi](https://www.mylnikov.org/archives/1170) and [Mylnikov Geo-Location API for Mobile Towers](https://www.mylnikov.org/archives/1059) to resolve locations.
